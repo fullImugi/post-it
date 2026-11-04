@@ -10,8 +10,8 @@ object Capture {
     fun capture(ctx: Context, raw: String): String {
         val text = raw.trim()
         if (text.isEmpty()) return ""
-        val p = Parser.parse(text)
         val db = Store.db(ctx)
+        val p = Parser.parse(text, db.rules())
         val now = System.currentTimeMillis()
         val tagText = p.tags.joinToString(" ") { "#$it" }
 

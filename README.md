@@ -14,10 +14,15 @@ Nothing leaves the phone. There's no account and no server.
 | `remind me at 5 to call mom` | A reminder at 5 PM today, or tomorrow if 5 PM has passed |
 | `remind me tomorrow at 9am to call the dentist` | Also works with today, tonight, weekdays, noon, "in 20 minutes" |
 | `remind me every Monday at 8am to take out the trash` | Repeats. Also every day, every weekday, every Mon and Fri |
+| `watch step brothers` | "Step Brothers" on the Movies list (also "I want to watch …") |
+| `read …`, `binge …`, `listen to …`, `visit …`, `cook …` | Books, Shows, Music, Places, Recipes |
 | `buy eggs, milk` | Two items on the Shopping list |
 | `todo renew passport` | An item on the To-do list |
 | `+movies Dune, Arrival` | Items on any list you name |
 | `add tape to my hardware list` | The same, in plain words |
+
+Add your own keywords from **⋮ › List keywords**. The **Map** tab draws everything as a live
+network: each note links to its tags, lists and reminders, and new notes pop in as you send them.
 
 Long-press anything to delete it. You can also share a message from WhatsApp (or any app) to
 **Save to Post-it** to file it. The share icon in the app exports everything as CSV.

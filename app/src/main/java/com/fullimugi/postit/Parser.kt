@@ -40,7 +40,7 @@ object Parser {
 
     private const val DAYS = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"
 
-    fun parse(raw: String, now: LocalDateTime = LocalDateTime.now()): Parsed {
+    fun parse(raw: String, rules: List<ListRule> = emptyList(), now: LocalDateTime = LocalDateTime.now()): Parsed {
         val tags = tagRe.findAll(raw).map { it.groupValues[1].lowercase() }.distinct().toList()
         val text = tidy(tagRe.replace(raw, " "))
         val body = text.ifBlank { raw.trim() }
@@ -48,7 +48,7 @@ object Parser {
         if (remindRe.containsMatchIn(text)) {
             return Parsed(tags, body, reminder = parseReminder(remindRe.replace(text, " "), now))
         }
-        val list = listMatch(text)
+        val list = listMatch(text, rules)
         if (list != null && list.second.isNotEmpty()) {
             return Parsed(tags, body, listName = list.first, listItems = list.second)
         }
@@ -57,21 +57,45 @@ object Parser {
 
     // ---------- lists ----------
 
-    private fun listMatch(t: String): Pair<String, List<String>>? {
+    private val intentRe = Regex(
+        """^(?:i\s+)?(?:really\s+)?(?:want\s+to|wanna|need\s+to|have\s+to|gotta|got\s+to|should|must|remember\s+to|gonna|going\s+to)\s+""",
+        I
+    )
+    private val mediaRe = Regex("""^(?:the\s+)?(?:movie|film|show|series|tv\s+show|book|novel|album|song|podcast|restaurant)\s+""", I)
+
+    private fun listMatch(t: String, rules: List<ListRule>): Pair<String, List<String>>? {
         Regex("""^\+([\p{L}\p{N}_-]+)[:\s]+(.+)$""", IS).find(t)?.let {
             return pretty(it.groupValues[1]) to split(it.groupValues[2])
         }
         Regex("""^(?:add|put)\s+(.+?)\s+(?:to|on)\s+(?:my\s+|the\s+)?(.+?)\s+list[.!]?$""", IS).find(t)?.let {
             return pretty(it.groupValues[2]) to split(it.groupValues[1])
         }
-        Regex("""^(?:buy|pick\s+up|grab)\s+(.+)$""", IS).find(t)?.let {
-            return "Shopping" to split(it.groupValues[1])
-        }
-        Regex("""^(?:to-?do|to\s+do|task)\b[:\s]+(.+)$""", IS).find(t)?.let {
-            return "To-do" to split(it.groupValues[1])
+        // "I want to watch step brothers" → "watch step brothers"
+        val s = intentRe.replace(t, "")
+        for (r in rules.sortedByDescending { it.keyword.length }) {
+            val words = r.keyword.trim().split(Regex("""\s+""")).filter { it.isNotEmpty() }
+            if (words.isEmpty()) continue
+            val kw = words.joinToString("""\s+""") { Regex.escape(it) }
+            val m = Regex("""^$kw(?![\p{L}\p{N}])[:\s]+(.+)$""", IS).find(s) ?: continue
+            val items = split(m.groupValues[1]).map { mediaRe.replace(it, "").trim() }.filter { it.isNotEmpty() }
+            if (items.isEmpty()) continue
+            return r.listName to (if (r.titleCase) items.map { titleCase(it) } else items.map { cap(it) })
         }
         return null
     }
+
+    private val small = setOf("a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for", "by", "with", "vs")
+
+    /** "step brothers" → "Step Brothers"; leaves words like "iPhone" alone. */
+    private fun titleCase(s: String): String =
+        s.split(" ").mapIndexed { i, w ->
+            when {
+                w.isEmpty() -> w
+                w != w.lowercase() -> w
+                i > 0 && w in small -> w
+                else -> w.replaceFirstChar { it.uppercaseChar() }
+            }
+        }.joinToString(" ")
 
     private fun split(s: String): List<String> =
         s.split(Regex("""[,;\n]+"""))

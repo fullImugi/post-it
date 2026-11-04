@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -49,6 +50,8 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -56,6 +59,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -102,10 +108,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.launch
 
-enum class Tab(val label: String) { Feed("Feed"), Lists("Lists"), Reminders("Reminders") }
+enum class Tab(val label: String) { Feed("Feed"), Map("Map"), Lists("Lists"), Reminders("Reminders") }
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.Feed -> Icons.Filled.Home
+    Tab.Map -> Icons.Filled.Share
     Tab.Lists -> Icons.AutoMirrored.Filled.List
     Tab.Reminders -> Icons.Filled.Notifications
 }
@@ -147,6 +154,8 @@ private fun App(tabState: MutableState<Tab>) {
     var tag by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     var showHelp by remember { mutableStateOf(false) }
+    var showRules by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val wide = LocalConfiguration.current.screenWidthDp >= 600
@@ -170,8 +179,20 @@ private fun App(tabState: MutableState<Tab>) {
             TopAppBar(
                 title = { Text("Post-it") },
                 actions = {
-                    IconButton(onClick = { exportCsv(ctx, items) }) { Icon(Icons.Filled.Share, "Export as CSV") }
                     IconButton(onClick = { showHelp = true }) { Icon(Icons.Filled.Info, "How it works") }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, "More") }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("List keywords") },
+                                onClick = { menuOpen = false; showRules = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export as CSV") },
+                                onClick = { menuOpen = false; exportCsv(ctx, items) },
+                            )
+                        }
+                    }
                 },
             )
         },
@@ -216,6 +237,11 @@ private fun App(tabState: MutableState<Tab>) {
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     when (tab) {
                         Tab.Feed -> FeedScreen(items, allTags, tag, { tag = it }, query, { query = it }, showChips = !wide)
+                        Tab.Map -> MapScreen(
+                            items,
+                            onOpenTag = { t -> tag = t; query = ""; tabState.value = Tab.Feed },
+                            onOpenTab = { t -> tabState.value = t },
+                        )
                         Tab.Lists -> ListsScreen(items)
                         Tab.Reminders -> RemindersScreen(items, resumeTick)
                     }
@@ -232,6 +258,7 @@ private fun App(tabState: MutableState<Tab>) {
     }
 
     if (showHelp) HelpDialog { showHelp = false }
+    if (showRules) RulesDialog { showRules = false }
 }
 
 @Composable
@@ -676,10 +703,14 @@ private fun HelpDialog(onDismiss: () -> Unit) {
         "remind me at 5 to call mom" to "A reminder at 5 PM today (or tomorrow if 5 has passed).",
         "remind me tomorrow at 9am …" to "Works with today, tonight, tomorrow, weekdays, noon, “in 20 minutes”.",
         "remind me every Monday at 8am …" to "Repeats. Also: every day, every weekday, every Mon and Fri.",
+        "watch step brothers" to "Adds “Step Brothers” to Movies. Also “I want to watch …”.",
+        "read, binge, listen to, visit, cook" to "Go to Books, Shows, Music, Places and Recipes.",
         "buy eggs, milk" to "Adds two items to your Shopping list.",
         "todo renew passport" to "Adds to your To-do list.",
+        "⋮ › List keywords" to "Add your own, like “try” → Restaurants.",
         "+movies Dune, Arrival" to "Adds to any list you name (here, Movies).",
         "add tape to my hardware list" to "Same thing, in plain words.",
+        "Map tab" to "Every note links to its tags, lists and reminders. Pinch to zoom, tap a dot for details.",
         "Long-press" to "Deletes a note, list item or reminder.",
         "Share from WhatsApp" to "Share any message to “Save to Post-it” to file it.",
     )
@@ -697,5 +728,74 @@ private fun HelpDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
+    )
+}
+
+@Composable
+private fun RulesDialog(onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val db = remember { Store.db(ctx) }
+    var version by remember { mutableIntStateOf(0) }
+    val rules = remember(version) { db.rules() }
+    var keyword by remember { mutableStateOf("") }
+    var list by remember { mutableStateOf("") }
+    var titles by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("List keywords") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Start a message with a keyword and it goes on that list. “watch step brothers” → Movies.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Column(
+                    Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()),
+                ) {
+                    rules.forEach { r ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(r.keyword, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            Text("→ ${r.listName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                            IconButton(onClick = { db.deleteRule(r.id); version++ }) {
+                                Icon(Icons.Filled.Close, "Remove ${r.keyword}")
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider()
+                Text("Add a keyword", style = MaterialTheme.typography.titleSmall)
+                OutlinedTextField(
+                    value = keyword, onValueChange = { keyword = it; error = null },
+                    label = { Text("Keyword") }, placeholder = { Text("try") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = list, onValueChange = { list = it; error = null },
+                    label = { Text("List") }, placeholder = { Text("Restaurants") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = titles, onCheckedChange = { titles = it })
+                    Text("Capitalize like a title", style = MaterialTheme.typography.bodyMedium)
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                when {
+                    keyword.isBlank() -> error = "Enter a keyword first."
+                    list.isBlank() -> error = "Enter a list name first."
+                    else -> {
+                        db.addRule(keyword, list.trim().replaceFirstChar { it.uppercaseChar() }, titles)
+                        keyword = ""; list = ""; version++
+                    }
+                }
+            }) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }

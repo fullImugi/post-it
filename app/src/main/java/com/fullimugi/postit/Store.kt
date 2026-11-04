@@ -23,9 +23,46 @@ data class Item(
 /** One message you sent, plus the short "receipt" the app replied with. */
 data class Message(val id: Long, val text: String, val reply: String, val createdAt: Long)
 
-class Db(ctx: Context) : SQLiteOpenHelper(ctx, "postit.db", null, 1) {
+/** "watch …" → Movies. [titleCase] turns "step brothers" into "Step Brothers". */
+data class ListRule(val id: Long, val keyword: String, val listName: String, val titleCase: Boolean)
+
+class Db(ctx: Context) : SQLiteOpenHelper(ctx, "postit.db", null, 2) {
+
+    companion object {
+        val DEFAULT_RULES = listOf(
+            Triple("watch", "Movies", true),
+            Triple("binge", "Shows", true),
+            Triple("read", "Books", true),
+            Triple("listen to", "Music", true),
+            Triple("visit", "Places", true),
+            Triple("go to", "Places", true),
+            Triple("cook", "Recipes", true),
+            Triple("buy", "Shopping", false),
+            Triple("pick up", "Shopping", false),
+            Triple("grab", "Shopping", false),
+            Triple("todo", "To-do", false),
+            Triple("to-do", "To-do", false),
+            Triple("to do", "To-do", false),
+            Triple("task", "To-do", false),
+        )
+    }
+
+    private fun createRules(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS rules(id INTEGER PRIMARY KEY AUTOINCREMENT, keyword TEXT NOT NULL, " +
+                "list_name TEXT NOT NULL, title_case INTEGER NOT NULL DEFAULT 0)"
+        )
+        DEFAULT_RULES.forEach { (k, l, t) ->
+            val v = ContentValues()
+            v.put("keyword", k)
+            v.put("list_name", l)
+            v.put("title_case", if (t) 1 else 0)
+            db.insert("rules", null, v)
+        }
+    }
 
     override fun onCreate(db: SQLiteDatabase) {
+        createRules(db)
         db.execSQL(
             "CREATE TABLE items(id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, " +
                 "tags TEXT NOT NULL DEFAULT '', list_name TEXT, checked INTEGER NOT NULL DEFAULT 0, " +
@@ -37,7 +74,39 @@ class Db(ctx: Context) : SQLiteOpenHelper(ctx, "postit.db", null, 1) {
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) createRules(db)
+    }
+
+    fun rules(): List<ListRule> =
+        readableDatabase.rawQuery("SELECT * FROM rules ORDER BY list_name COLLATE NOCASE, keyword", null).use { c ->
+            buildList {
+                while (c.moveToNext()) {
+                    add(
+                        ListRule(
+                            id = c.getLong(c.getColumnIndexOrThrow("id")),
+                            keyword = c.getString(c.getColumnIndexOrThrow("keyword")),
+                            listName = c.getString(c.getColumnIndexOrThrow("list_name")),
+                            titleCase = c.getInt(c.getColumnIndexOrThrow("title_case")) == 1,
+                        )
+                    )
+                }
+            }
+        }
+
+    fun addRule(keyword: String, listName: String, titleCase: Boolean) {
+        val k = keyword.trim().lowercase()
+        writableDatabase.delete("rules", "keyword = ?", arrayOf(k))
+        val v = ContentValues()
+        v.put("keyword", k)
+        v.put("list_name", listName.trim())
+        v.put("title_case", if (titleCase) 1 else 0)
+        writableDatabase.insert("rules", null, v)
+    }
+
+    fun deleteRule(id: Long) {
+        writableDatabase.delete("rules", "id = ?", arrayOf(id.toString()))
+    }
 
     fun insertItem(
         body: String,
