@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="app_bg">#FFFBF5</color>
+    <color name="widget_bg">#FFF8E7</color>
+    <color name="widget_text">#2B2A27</color>
+    <color name="widget_muted">#76736B</color>
+    <color name="bubble_bg">#FFE59A</color>
+    <color name="pill_bg">#FFFFFF</color>
+    <color name="accent">#B7791F</color>
+    <color name="ic_bg">#2F3B4C</color>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Post-it</string>
+    <string name="capture_label">Save to Post-it</string>
+    <string name="widget_label">Post-it messenger</string>
+    <string name="widget_hint">Message yourself…</string>
+    <string name="widget_empty">Text yourself anything.\n#tags file it · \"remind me…\" sets a reminder</string>
+    <string name="voice_note">Voice note</string>
+</resources>
