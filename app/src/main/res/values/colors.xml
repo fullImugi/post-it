@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="app_bg">#FFFBF5</color>
-    <color name="widget_bg">#FFF8E7</color>
-    <color name="widget_text">#2B2A27</color>
-    <color name="widget_muted">#76736B</color>
-    <color name="bubble_bg">#FFE59A</color>
-    <color name="pill_bg">#FFFFFF</color>
-    <color name="accent">#B7791F</color>
-    <color name="ic_bg">#2F3B4C</color>
+    <color name="app_bg">#FBF4E6</color>
+    <color name="widget_bg">#FBF4E6</color>
+    <color name="widget_text">#2A2420</color>
+    <color name="widget_muted">#7A6E60</color>
+    <color name="bubble_bg">#FFE27A</color>
+    <color name="pill_bg">#2A2420</color>
+    <color name="pill_text">#F6EEDC</color>
+    <color name="accent">#FF5A36</color>
+    <color name="ic_bg">#2A2420</color>
+    <color name="sticky_0">#FFE27A</color>
+    <color name="sticky_1">#FFB8CB</color>
+    <color name="sticky_2">#AEE8C8</color>
+    <color name="sticky_3">#A9D5FF</color>
+    <color name="sticky_4">#FFCA9E</color>
+    <color name="sticky_5">#D3C2FF</color>
 </resources>

@@ -2,6 +2,9 @@ package com.fullimugi.postit
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +63,8 @@ class GNode(
     val item: Item?,
     var x: Float,
     var y: Float,
+    /** Color key, shared with the sticky notes on the board. */
+    val key: String?,
 ) {
     var vx = 0f
     var vy = 0f
@@ -92,11 +97,11 @@ private fun buildGraph(items: List<Item>, old: Map<String, GNode>): GraphModel {
     val edges = ArrayList<IntArray>()
     var added = 0
 
-    fun node(id: String, kind: NodeKind, label: String, item: Item? = null, near: GNode? = null): Int {
+    fun node(id: String, kind: NodeKind, label: String, key: String?, item: Item? = null, near: GNode? = null): Int {
         index[id]?.let { return it }
         val prev = old[id]
         val n = if (prev != null) {
-            GNode(id, kind, label, item, prev.x, prev.y).also { it.vx = prev.vx; it.vy = prev.vy }
+            GNode(id, kind, label, item, prev.x, prev.y, key).also { it.vx = prev.vx; it.vy = prev.vy }
         } else {
             added++
             val spread = if (near == null) 400f else 50f
@@ -104,6 +109,7 @@ private fun buildGraph(items: List<Item>, old: Map<String, GNode>): GraphModel {
                 id, kind, label, item,
                 (near?.x ?: 0f) + (rnd.nextFloat() - 0.5f) * spread,
                 (near?.y ?: 0f) + (rnd.nextFloat() - 0.5f) * spread,
+                key,
             )
         }
         nodes += n
@@ -113,12 +119,12 @@ private fun buildGraph(items: List<Item>, old: Map<String, GNode>): GraphModel {
 
     for (it in items.take(400)) {
         val hubs = ArrayList<Int>()
-        it.tags.forEach { t -> hubs += node("t:$t", NodeKind.Tag, "#$t") }
-        it.listName?.let { l -> hubs += node("l:${l.lowercase()}", NodeKind.List, l) }
-        if (it.remindAt != null) hubs += node("r", NodeKind.Reminders, "Reminders")
-        if (hubs.isEmpty()) hubs += node("i", NodeKind.Inbox, "Untagged")
+        it.tags.forEach { t -> hubs += node("t:$t", NodeKind.Tag, "#$t", t) }
+        it.listName?.let { l -> hubs += node("l:${l.lowercase()}", NodeKind.List, l, l) }
+        if (it.remindAt != null) hubs += node("r", NodeKind.Reminders, "Reminders", "reminders")
+        if (hubs.isEmpty()) hubs += node("i", NodeKind.Inbox, "Untagged", null)
         val label = if (it.body.length > 28) it.body.take(26).trimEnd() + "…" else it.body
-        val ni = node("n:${it.id}", NodeKind.Note, label, it, near = nodes[hubs.first()])
+        val ni = node("n:${it.id}", NodeKind.Note, label, Sticky.keyFor(it), it, near = nodes[hubs.first()])
         hubs.forEach { h ->
             edges += intArrayOf(ni, h)
             nodes[h].degree++
@@ -211,18 +217,13 @@ fun MapScreen(items: List<Item>, onOpenTag: (String) -> Unit, onOpenTab: (Tab) -
     }
 
     val cs = MaterialTheme.colorScheme
-    val reminderColor = Color(0xFFE0A030)
-    fun colorOf(k: NodeKind): Color = when (k) {
-        NodeKind.Tag -> cs.primary
-        NodeKind.List -> cs.tertiary
-        NodeKind.Reminders -> reminderColor
-        NodeKind.Inbox -> cs.outline
-        NodeKind.Note -> cs.onSurfaceVariant
-    }
+    val dark = Look.dark
+    fun boldOf(n: GNode): Color = if (n.kind == NodeKind.Inbox) cs.outline else Sticky.bold(n.key)
+    fun paperOf(n: GNode): Color = if (n.kind == NodeKind.Inbox) cs.surfaceContainerHighest else Sticky.paper(n.key, dark)
 
     val measurer = rememberTextMeasurer()
-    val hubStyle = TextStyle(color = cs.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-    val noteStyle = TextStyle(color = cs.onSurfaceVariant, fontSize = 11.sp)
+    val hubStyle = TextStyle(color = cs.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = Fredoka)
+    val noteStyle = TextStyle(color = cs.onSurfaceVariant, fontSize = 13.sp, fontFamily = Hand)
     val labels = remember(cs.onSurface) { HashMap<String, TextLayoutResult>() }
 
     Box(Modifier.fillMaxSize()) {
@@ -232,7 +233,7 @@ fun MapScreen(items: List<Item>, onOpenTag: (String) -> Unit, onOpenTab: (Tab) -
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("Your map grows as you write", style = MaterialTheme.typography.titleMedium)
+                Text("Your map grows as you write", style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Each note becomes a dot, linked to its #tags, lists and reminders.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -282,13 +283,40 @@ fun MapScreen(items: List<Item>, onOpenTag: (String) -> Unit, onOpenTab: (Tab) -
             val selIdx = selected?.let { id -> g.nodes.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }
             val focus: Set<Int>? = selIdx?.let { g.neighbors[it] + it }
 
+            // dotted paper
+            val gap = 28f * scale.coerceIn(0.6f, 2.5f)
+            val dotC = cs.outline.copy(alpha = 0.25f)
+            val ox = ((center.x % gap) + gap) % gap
+            val oy = ((center.y % gap) + gap) % gap
+            var gx = ox
+            while (gx < size.width) {
+                var gy = oy
+                while (gy < size.height) {
+                    drawCircle(dotC, 1.6f, Offset(gx, gy))
+                    gy += gap
+                }
+                gx += gap
+            }
+
             for (e in g.edges) {
                 val dim = focus != null && !(e[0] in focus && e[1] in focus)
-                drawLine(
-                    color = cs.outline.copy(alpha = if (dim) 0.08f else 0.35f),
-                    start = screen(g.nodes[e[0]]),
-                    end = screen(g.nodes[e[1]]),
-                    strokeWidth = if (!dim && focus != null) 2.5f else 1.5f,
+                val hub = g.nodes[e[1]]
+                val a = screen(g.nodes[e[0]])
+                val b = screen(hub)
+                // a gentle curve instead of a ruler-straight line
+                val mx = (a.x + b.x) / 2f
+                val my = (a.y + b.y) / 2f
+                val bend = 0.12f
+                val cx = mx - (b.y - a.y) * bend
+                val cy = my + (b.x - a.x) * bend
+                val path = androidx.compose.ui.graphics.Path().apply {
+                    moveTo(a.x, a.y)
+                    quadraticBezierTo(cx, cy, b.x, b.y)
+                }
+                drawPath(
+                    path,
+                    color = boldOf(hub).copy(alpha = if (dim) 0.06f else 0.4f),
+                    style = Stroke(width = if (!dim && focus != null) 3.5f else 2f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
                 )
             }
             g.nodes.forEachIndexed { i, n ->
@@ -296,15 +324,20 @@ fun MapScreen(items: List<Item>, onOpenTag: (String) -> Unit, onOpenTab: (Tab) -
                 val p = screen(n)
                 val r = n.radius * scale.coerceIn(0.6f, 2f)
                 val faded = n.item?.checked == true
-                val base = colorOf(n.kind)
-                val c = base.copy(alpha = when {
+                val a = when {
                     dim -> 0.15f
-                    faded -> 0.35f
-                    n.isHub -> 0.9f
-                    else -> 0.75f
-                })
-                drawCircle(c, r, p)
-                if (i == selIdx) drawCircle(cs.onSurface, r + 5f, p, style = Stroke(width = 3f))
+                    faded -> 0.4f
+                    else -> 1f
+                }
+                if (n.isHub) {
+                    drawCircle(boldOf(n).copy(alpha = 0.18f * a), r + 8f, p)
+                    drawCircle(paperOf(n).copy(alpha = a), r, p)
+                    drawCircle(boldOf(n).copy(alpha = a), r, p, style = Stroke(width = 4f))
+                } else {
+                    drawCircle(cs.background.copy(alpha = a), r + 2.5f, p)
+                    drawCircle(boldOf(n).copy(alpha = a), r, p)
+                }
+                if (i == selIdx) drawCircle(Tomato, r + 7f, p, style = Stroke(width = 3.5f))
             }
             g.nodes.forEachIndexed { i, n ->
                 val inFocus = focus != null && i in focus
@@ -323,23 +356,19 @@ fun MapScreen(items: List<Item>, onOpenTag: (String) -> Unit, onOpenTab: (Tab) -
             }
         }
 
-        // Legend
-        Row(
-            Modifier.align(Alignment.TopStart).padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Legend("Tags", colorOf(NodeKind.Tag))
-            Legend("Lists", colorOf(NodeKind.List))
-            Legend("Reminders", reminderColor)
-            Legend("Notes", colorOf(NodeKind.Note))
-        }
+        Text(
+            "Pinch to zoom · tap a bubble",
+            style = MaterialTheme.typography.labelMedium,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.TopStart).padding(16.dp),
+        )
         TextButton(
             onClick = {
                 scale = 1f; pan = Offset.Zero; selected = null
                 MapMemory.scale = 1f; MapMemory.pan = Offset.Zero
             },
             modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
-        ) { Text("Recenter") }
+        ) { Text("Recenter", color = Tomato) }
 
         val sel = selected?.let { id -> graph.nodes.firstOrNull { it.id == id } }
         if (sel != null) {
@@ -358,15 +387,6 @@ fun MapScreen(items: List<Item>, onOpenTag: (String) -> Unit, onOpenTab: (Tab) -
 }
 
 @Composable
-private fun Legend(label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(10.dp).background(color, CircleShape))
-        Spacer(Modifier.width(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
 private fun DetailCard(
     node: GNode,
     connected: List<GNode>,
@@ -375,21 +395,25 @@ private fun DetailCard(
     onClose: () -> Unit,
     modifier: Modifier,
 ) {
-    Card(modifier.padding(12.dp).fillMaxWidth().widthIn(max = 560.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val dark = Look.dark
+    val paper = if (node.kind == NodeKind.Inbox) MaterialTheme.colorScheme.surfaceContainerHigh else Sticky.paper(node.key, dark)
+    val ink = Sticky.ink(dark)
+    StickyCard(paper, node.id.hashCode().toLong(), modifier.padding(14.dp).fillMaxWidth().widthIn(max = 560.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val item = node.item
             if (item != null) {
-                Text(item.body, style = MaterialTheme.typography.titleMedium)
+                Text(item.body, style = NoteText.copy(fontSize = 22.sp), color = ink)
                 val links = connected.joinToString(" · ") { it.label }
                 Text(
                     listOf(links, Fmt.ago(item.createdAt)).filter { it.isNotEmpty() }.joinToString(" · "),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = ink.copy(alpha = 0.7f),
                 )
             } else {
                 Text(
-                    "${node.label} · ${connected.size} note${if (connected.size == 1) "" else "s"}",
-                    style = MaterialTheme.typography.titleMedium,
+                    "${node.label} · ${connected.size}",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = ink,
                 )
                 Column(
                     Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState()),
@@ -399,24 +423,37 @@ private fun DetailCard(
                         val ni = n.item ?: return@forEach
                         Text(
                             (if (ni.checked) "✓ " else "• ") + ni.body,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = NoteText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = if (ni.checked) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+                            color = if (ni.checked) ink.copy(alpha = 0.45f) else ink,
                         )
                     }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 when (node.kind) {
-                    NodeKind.Tag -> OutlinedButton(onClick = { onOpenTag(node.label.removePrefix("#")) }) { Text("Show in feed") }
-                    NodeKind.List -> OutlinedButton(onClick = { onOpenTab(Tab.Lists) }) { Text("Open lists") }
-                    NodeKind.Reminders -> OutlinedButton(onClick = { onOpenTab(Tab.Reminders) }) { Text("Open reminders") }
+                    NodeKind.Tag -> InkButton("Show on board", ink, paper) { onOpenTag(node.label.removePrefix("#")) }
+                    NodeKind.List -> InkButton("Open lists", ink, paper) { onOpenTab(Tab.Lists) }
+                    NodeKind.Reminders -> InkButton("Open reminders", ink, paper) { onOpenTab(Tab.Reminders) }
                     else -> {}
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onClose) { Text("Close") }
+                TextButton(onClick = onClose) { Text("Close", color = ink) }
             }
         }
+    }
+}
+
+@Composable
+private fun InkButton(label: String, ink: Color, paper: Color, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(ink)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 9.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = paper)
     }
 }

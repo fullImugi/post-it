@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -128,69 +129,70 @@ private fun CaptureSheet(startVoice: Boolean, initial: String, onClose: () -> Un
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            tonalElevation = 3.dp,
+            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+            color = MaterialTheme.colorScheme.background,
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 640.dp)
                 .imePadding()
                 .navigationBarsPadding(),
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .size(width = 40.dp, height = 5.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Message yourself", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onOpenApp) { Text("Open app") }
+                    Column(Modifier.weight(1f)) {
+                        Text("What's on your mind?", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Squiggle(Tomato)
+                    }
+                    TextButton(onClick = onOpenApp) { Text("Open app", color = Tomato) }
                 }
                 recent.forEach { m -> Bubble(m) }
                 Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        modifier = Modifier.weight(1f).focusRequester(focus),
-                        placeholder = { Text("buy eggs, milk · remind me at 5 to call mom") },
-                        shape = RoundedCornerShape(24.dp),
-                        maxLines = 4,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Sentences,
-                            imeAction = ImeAction.Send,
-                        ),
-                        keyboardActions = KeyboardActions(onSend = { send(text) }),
-                    )
-                    IconButton(onClick = { startListening() }) {
-                        Icon(painterResource(R.drawable.ic_mic), contentDescription = "Voice note", tint = Color.Unspecified)
-                    }
-                    FilledIconButton(onClick = { send(text) }, enabled = text.isNotBlank()) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
-                    }
-                }
+                ChatComposer(
+                    text = text,
+                    onText = { text = it },
+                    onSend = { send(text) },
+                    onMic = { startListening() },
+                    focus = focus,
+                )
             }
         }
     }
 }
 
+private val tagRe = Regex("""#([\p{L}\p{N}_-]+)""")
+
 @Composable
 fun Bubble(m: Message) {
+    val dark = Look.dark
+    val key = tagRe.find(m.text)?.groupValues?.get(1) ?: "m${m.id}"
+    val paper = Sticky.paper(key, dark)
+    val ink = Sticky.ink(dark)
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
         Surface(
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 4.dp),
+            color = paper,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 6.dp),
+            shadowElevation = 2.dp,
             modifier = Modifier.padding(start = 48.dp),
         ) {
             Text(
                 m.text,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                style = NoteText,
+                color = ink,
                 maxLines = 4,
             )
         }
-        Row(Modifier.padding(top = 2.dp, end = 4.dp)) {
-            Text(
-                "✓ ${m.reply} · ${Fmt.ago(m.createdAt)}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.width(0.dp))
-        }
+        Text(
+            "✓ ${m.reply} · ${Fmt.ago(m.createdAt)}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 3.dp, end = 6.dp),
+        )
     }
 }

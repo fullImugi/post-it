@@ -104,6 +104,11 @@ class WidgetService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory = Factory(applicationContext)
 
     private class Factory(private val ctx: Context) : RemoteViewsFactory {
+        private val tagRe = Regex("""#([\p{L}\p{N}_-]+)""")
+        private val bubbles = intArrayOf(
+            R.drawable.bubble_0, R.drawable.bubble_1, R.drawable.bubble_2,
+            R.drawable.bubble_3, R.drawable.bubble_4, R.drawable.bubble_5,
+        )
         private var messages: List<Message> = emptyList()
 
         override fun onCreate() {}
@@ -120,6 +125,8 @@ class WidgetService : RemoteViewsService() {
             val rv = RemoteViews(ctx.packageName, R.layout.widget_item)
             val m = messages.getOrNull(position) ?: return rv
             rv.setTextViewText(R.id.text, m.text)
+            val key = tagRe.find(m.text)?.groupValues?.get(1) ?: "m${m.id}"
+            rv.setInt(R.id.text, "setBackgroundResource", bubbles[Math.floorMod(key.lowercase().hashCode(), bubbles.size)])
             rv.setTextViewText(R.id.meta, "✓ ${m.reply} · ${Fmt.ago(m.createdAt)}")
             rv.setOnClickFillInIntent(R.id.row, Intent())
             return rv
