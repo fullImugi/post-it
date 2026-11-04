@@ -11,20 +11,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val Fredoka = FontFamily(
-    Font(R.font.fredoka_regular, FontWeight.Normal),
-    Font(R.font.fredoka_medium, FontWeight.Medium),
-    Font(R.font.fredoka_semibold, FontWeight.SemiBold),
-    Font(R.font.fredoka_bold, FontWeight.Bold),
-)
-val Caveat = FontFamily(Font(R.font.caveat_bold, FontWeight.Bold))
-val Hand = FontFamily(Font(R.font.patrick_hand, FontWeight.Normal))
+// Everything uses the phone's own font (including any font you pick in Samsung's settings).
+val Fredoka: FontFamily = FontFamily.Default
+val Caveat: FontFamily = FontFamily.Default
+val Hand: FontFamily = FontFamily.Default
 
 /** Sticky-note colors. Each tag or list always gets the same one. */
 object Sticky {
@@ -127,9 +122,9 @@ private fun type(): Typography {
         displayLarge = base.displayLarge.copy(fontFamily = Caveat),
         displayMedium = base.displayMedium.copy(fontFamily = Caveat),
         displaySmall = base.displaySmall.copy(fontFamily = Caveat),
-        headlineLarge = base.headlineLarge.copy(fontFamily = Caveat, fontWeight = FontWeight.Bold),
-        headlineMedium = base.headlineMedium.copy(fontFamily = Caveat, fontWeight = FontWeight.Bold),
-        headlineSmall = base.headlineSmall.copy(fontFamily = Caveat, fontWeight = FontWeight.Bold),
+        headlineLarge = base.headlineLarge.copy(fontFamily = Caveat, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
+        headlineMedium = base.headlineMedium.copy(fontFamily = Caveat, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp),
+        headlineSmall = base.headlineSmall.copy(fontFamily = Caveat, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 26.sp),
         titleLarge = base.titleLarge.copy(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold),
         titleMedium = base.titleMedium.copy(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold),
         titleSmall = base.titleSmall.copy(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold),
@@ -142,8 +137,8 @@ private fun type(): Typography {
     )
 }
 
-/** Handwritten style for what you wrote. */
-val NoteText = TextStyle(fontFamily = Hand, fontSize = 19.sp, lineHeight = 23.sp)
+/** Style for what you wrote. */
+val NoteText = TextStyle(fontFamily = Hand, fontSize = 16.sp, lineHeight = 22.sp)
 
 private val PlayfulShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),

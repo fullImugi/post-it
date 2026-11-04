@@ -18,7 +18,6 @@
         android:paddingTop="8dp"
         android:paddingEnd="12dp"
         android:paddingBottom="8dp"
-        android:fontFamily="casual"
         android:textColor="@color/widget_text"
         android:textSize="15sp" />
 

@@ -261,7 +261,7 @@ private fun Header(items: List<Item>, onHelp: () -> Unit, onRules: () -> Unit, o
         Column(Modifier.weight(1f)) {
             Text(
                 "Post-it",
-                style = MaterialTheme.typography.displaySmall.copy(fontSize = 46.sp, lineHeight = 46.sp),
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp, lineHeight = 40.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Black),
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Squiggle(Tomato, Modifier.padding(start = 2.dp))
@@ -618,7 +618,7 @@ private fun ReminderRow(item: Item, isPast: Boolean, modifier: Modifier) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         at.ldt().format(clockF),
-                        style = MaterialTheme.typography.headlineLarge.copy(fontSize = 34.sp, lineHeight = 34.sp),
+                        style = MaterialTheme.typography.headlineLarge.copy(fontSize = 26.sp, lineHeight = 28.sp),
                         color = ink,
                     )
                     Spacer(Modifier.width(2.dp))

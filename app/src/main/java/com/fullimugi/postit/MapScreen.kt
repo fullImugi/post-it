@@ -402,7 +402,7 @@ private fun DetailCard(
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val item = node.item
             if (item != null) {
-                Text(item.body, style = NoteText.copy(fontSize = 22.sp), color = ink)
+                Text(item.body, style = NoteText.copy(fontSize = 18.sp), color = ink)
                 val links = connected.joinToString(" · ") { it.label }
                 Text(
                     listOf(links, Fmt.ago(item.createdAt)).filter { it.isNotEmpty() }.joinToString(" · "),

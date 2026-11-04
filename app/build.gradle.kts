@@ -12,8 +12,8 @@ android {
         applicationId = "com.fullimugi.postit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.2.1"
     }
 
     // A fixed key so every new build installs as an update and keeps your notes.
